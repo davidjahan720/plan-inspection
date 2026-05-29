@@ -437,7 +437,8 @@ async function savePDF() {
     pdfDoc.setSubject('__pi__' + JSON.stringify({ version: 1, bubbles: state.bubbles }));
 
     const savedBytes = await pdfDoc.save();
-    triggerDownload(savedBytes, `${state.fileName}_bullage.pdf`, 'application/pdf');
+    await saveWithPicker(savedBytes, `${state.fileName}_bullage.pdf`,
+      'application/pdf', 'Fichier PDF', ['.pdf']);
   } catch (err) {
     alert('Erreur lors de la sauvegarde :\n' + err.message);
   } finally {
@@ -455,14 +456,31 @@ function showToast(msg, duration = 2800) {
   t._timer = setTimeout(() => t.classList.add('hidden'), duration);
 }
 
-function triggerDownload(bytes, filename, mime) {
+// Ouvre le dialogue "Enregistrer sous" natif du système (Chrome/Edge).
+// Fallback automatique vers téléchargement direct si non supporté.
+async function saveWithPicker(bytes, suggestedName, mime, description, extensions) {
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description, accept: { [mime]: extensions } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(new Blob([bytes], { type: mime }));
+      await writable.close();
+      showToast('✓ Fichier enregistré');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // annulé par l'utilisateur
+      // autre erreur → fallback
+    }
+  }
+  // Fallback : téléchargement automatique (Firefox, Safari)
   const blob = new Blob([bytes], { type: mime });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
+  a.href = url; a.download = suggestedName;
+  document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
@@ -532,7 +550,8 @@ async function exportPDF() {
   doc.text(`Total : ${total} cote${total > 1 ? 's' : ''} | OK : ${oks} | NOK : ${noks}`,
     14, doc.lastAutoTable.finalY + 5);
 
-  doc.save(`${state.fileName}_rapport.pdf`);
+  await saveWithPicker(doc.output('arraybuffer'), `${state.fileName}_rapport.pdf`,
+    'application/pdf', 'Fichier PDF', ['.pdf']);
 }
 
 // ─── Export Excel ─────────────────────────────────────────
@@ -552,5 +571,8 @@ function exportExcel() {
     { wch: 8 }, { wch: 16 }, { wch: 8 }, { wch: 6 },
   ];
   XLSX.utils.book_append_sheet(wb, ws, 'Contrôle');
-  XLSX.writeFile(wb, `${state.fileName}_rapport.xlsx`);
+  const xlsxBytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  await saveWithPicker(xlsxBytes, `${state.fileName}_rapport.xlsx`,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'Fichier Excel', ['.xlsx']);
 }
