@@ -8,6 +8,8 @@ import threading
 import os
 import sys
 
+sys.stdout.reconfigure(encoding='utf-8')
+
 PORT = 8080
 DIR  = os.path.dirname(os.path.abspath(__file__))
 
