@@ -557,7 +557,7 @@ async function exportPDF() {
 // ─── Export Excel ─────────────────────────────────────────
 $('btn-export-excel').addEventListener('click', exportExcel);
 
-function exportExcel() {
+async function exportExcel() {
   const wb     = XLSX.utils.book_new();
   const header = ['N°', 'Désignation', 'Nominale', 'Tol. +', 'Tol. −', 'Unité', 'Valeur mesurée', 'Statut', 'Page'];
   const rows   = state.bubbles.map(b => {
